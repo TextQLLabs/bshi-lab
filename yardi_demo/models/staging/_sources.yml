@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: yardi
+    description: Raw Yardi Voyager data loaded into Snowflake.
+    database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+    schema: RAW
+    tables: []
+
+  - name: yardi_financials
+    description: Yardi financial data.
+    database: YARDI
+    schema: FINANCIALS
+    tables: []
+
+  - name: yardi_properties
+    description: Yardi property and unit data.
+    database: YARDI
+    schema: PROPERTIES
+    tables: []
