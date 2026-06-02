@@ -1,3 +1,41 @@
 version: 2
 
-models: []
+models:
+  - name: int_yardi__transaction_details
+    description: >
+      Fully enriched transaction record.  Joins the staged transaction
+      against 7 dimension sources (property, unit, tenant, lease,
+      GL account, charge, vendor) and adds derived business columns:
+      transaction_type_label, amount_category, days_to_post,
+      is_late_posting, net_amount, fiscal_year, fiscal_month.
+
+      Materialized as ephemeral -- consumed only by fct_transactions.
+    columns:
+      - name: transaction_id
+        description: "Surrogate PK carried from staging"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_name
+        description: "Resolved from PROPERTY via join (replaces denormalized SPROPNAME)"
+        tests:
+          - not_null
+
+      - name: tenant_name
+        description: "Resolved from TENANT via join (replaces denormalized STENANTNAME)"
+        tests:
+          - not_null
+
+      - name: gl_account_code
+        description: "Cast to VARCHAR from GLACCT.SCODE (was NUMBER in source)"
+        tests:
+          - not_null
+
+      - name: days_to_post
+        description: >
+          Calendar days between transaction_date and posted_date.
+          NULL when posted_date is NULL (unposted transactions).
+
+      - name: is_late_posting
+        description: "True when days_to_post > 5"
