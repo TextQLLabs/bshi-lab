@@ -3,9 +3,101 @@ version: 2
 sources:
   - name: yardi
     description: Raw Yardi Voyager data loaded into Snowflake.
-    database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+    database: YARDI
     schema: RAW
-    tables: []
+    tables:
+      - name: TRANS
+        description: >
+          Raw financial transactions from Yardi Voyager. Contains charges,
+          payments, credits, and adjustments across all properties.
+          Known issues: DTEFFECTIVE stored as TEXT in 5 inconsistent date
+          formats; ISTATUS uses magic numbers (0-3); 7 denormalized name
+          columns duplicate dimension data.
+        columns:
+          - name: HMY
+            description: Surrogate primary key (unique, non-null across all 2,000 rows).
+          - name: HVENDOR
+            description: >
+              FK to VENDOR.HMY. NULL for ~80% of rows (rent payments, charges
+              that don't involve a vendor). This is expected behavior, not a
+              data quality issue.
+          - name: DTEFFECTIVE
+            description: >
+              Effective date stored as TEXT. Contains 5 formats: YYYY-MM-DD (361),
+              MM/DD/YYYY (401), MM/DD/YY (426), DD-Mon-YYYY (404), MM-DD-YYYY (408).
+              Parsed in stg_transactions via CASE/RLIKE.
+          - name: ISTATUS
+            description: "Magic number: 0=Posted, 1=Pending, 2=Void, 3=Reversed."
+          - name: BVOID
+            description: "Boolean flag: 0=active, 1=voided."
+          - name: STYPE
+            description: "Transaction type code: CHG=Charge, PMT=Payment, CR=Credit, ADJ=Adjustment."
+
+      - name: PROPERTY
+        description: Property master dimension.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: UNIT
+        description: Rental unit dimension.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: TENANT
+        description: Tenant master dimension.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: LEASE
+        description: Lease agreement records.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: GLACCT
+        description: General ledger chart of accounts.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: CHARGE
+        description: Charge code definitions.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: VENDOR
+        description: Vendor / contractor master.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: BATCH
+        description: Transaction batch headers.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: WORKORDER
+        description: Maintenance work orders.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: PROSPECT
+        description: Leasing prospect pipeline.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
+
+      - name: CAMREC
+        description: CAM reconciliation records.
+        columns:
+          - name: HMY
+            description: Surrogate primary key.
 
   - name: yardi_financials
     description: Yardi financial data.
