@@ -1,3 +1,85 @@
 version: 2
 
-models: []
+models:
+  - name: stg_transactions
+    description: >
+      Cleaned and standardized financial transactions from Yardi Voyager.
+      Renames Hungarian-notation columns, parses the DTEFFECTIVE string into
+      a proper DATE, decodes magic-number status codes, drops 7 denormalized
+      columns, and adds computed flags (is_void, is_credit, net_amount).
+    columns:
+      - name: transaction_id
+        description: Surrogate primary key (source: TRANS.HMY).
+        data_tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: FK to property dimension.
+        data_tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: tenant_id
+        description: FK to tenant dimension.
+        data_tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'TENANT')
+              field: HMY
+
+      - name: gl_account_id
+        description: FK to GL account dimension.
+        data_tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'GLACCT')
+              field: HMY
+
+      - name: transaction_date
+        description: Date the transaction occurred (native DATE).
+        data_tests:
+          - not_null
+
+      - name: effective_date
+        description: >
+          Parsed effective date. Converted from 5 string formats in the
+          source DTEFFECTIVE column. Rows that could not be parsed are NULL
+          and flagged via is_effective_date_unparseable.
+
+      - name: is_effective_date_unparseable
+        description: >
+          TRUE if the source DTEFFECTIVE value did not match any of the 5
+          known formats. Use this to monitor for new format drift.
+
+      - name: transaction_type
+        description: "Human-readable type: Charge, Payment, Credit, or Adjustment."
+        data_tests:
+          - accepted_values:
+              values: ['Charge', 'Payment', 'Credit', 'Adjustment']
+
+      - name: status_description
+        description: "Human-readable status: Posted, Pending, Void, or Reversed."
+        data_tests:
+          - accepted_values:
+              values: ['Posted', 'Pending', 'Void', 'Reversed']
+
+      - name: amount
+        description: Transaction amount (negative for payments/credits).
+        data_tests:
+          - not_null
+
+      - name: net_amount
+        description: Amount zeroed out for void transactions.
+
+      - name: is_void
+        description: TRUE if the transaction has been voided (BVOID=1).
+        data_tests:
+          - not_null
+
+      - name: is_credit
+        description: TRUE if amount < 0 (payment or credit).
+        data_tests:
+          - not_null
