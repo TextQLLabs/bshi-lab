@@ -1,3 +1,53 @@
 version: 2
 
-models: []
+models:
+  - name: fct_transactions
+    description: >
+      Business-ready transaction fact table. Excludes void transactions,
+      joins all dimension attributes (property, tenant, unit, GL account,
+      charge code, vendor), and adds derived date parts and posting latency.
+      This is the single source of truth for financial transaction reporting.
+    columns:
+      - name: transaction_id
+        description: Surrogate primary key.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: transaction_date
+        data_tests:
+          - not_null
+
+      - name: property_name
+        description: Resolved from PROPERTY dimension (replaces denormalized SPROPNAME).
+        data_tests:
+          - not_null
+
+      - name: tenant_name
+        description: Resolved from TENANT dimension (replaces denormalized STENANTNAME).
+
+      - name: gl_account_name
+        description: Resolved from GLACCT dimension (replaces denormalized SGLACCTDESC).
+
+      - name: charge_description
+        description: Resolved from CHARGE dimension (replaces denormalized SCHARGEDESC).
+
+      - name: transaction_type
+        description: "Human-readable: Charge, Payment, Credit, or Adjustment."
+        data_tests:
+          - accepted_values:
+              values: ['Charge', 'Payment', 'Credit', 'Adjustment']
+
+      - name: days_to_post
+        description: >
+          Number of days between transaction_date and posted_date.
+          NULL when posted_date is NULL (pending transactions).
+
+      - name: amount
+        data_tests:
+          - not_null
+
+      - name: vendor_name
+        description: >
+          Resolved from VENDOR dimension. NULL for transactions without a
+          vendor (rent payments, tenant charges). ~80% of rows will be NULL.
