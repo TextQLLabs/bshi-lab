@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: int_yardi__prospect_funnel
+    description: >
+      Enriched prospect record for leasing-funnel analytics.  Joins the
+      staged prospect against property and unit sources and the
+      seed_prospect_status lookup, then derives funnel-progression flags
+      (reached_tour / application / approval / lease), velocity metrics
+      (days_to_tour / apply / movein, lead_age_days), and a contact_month
+      cohort key.  Materialized ephemeral - consumed by fct_prospects.
+    columns:
+      - name: prospect_id
+        description: "Surrogate PK carried from staging"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_name
+        description: "Resolved from PROPERTY via join (replaces denormalized SPROPNAME)"
+        tests:
+          - not_null
+
+      - name: funnel_stage_order
+        description: "Ordinal funnel position from seed_prospect_status (1-7)"
+        tests:
+          - not_null
+
+      - name: is_converted
+        description: "True only for leased prospects"
+        tests:
+          - not_null
+
+      - name: days_to_apply
+        description: >
+          Calendar days from contact_date to applied_date.
+          NULL when the prospect never applied.
+
+      - name: reached_lease
+        description: "True when move_in_date is populated (funnel conversion)"
+        tests:
+          - not_null

@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: stg_yardi__prospects
+    description: >
+      Cleaned leasing-funnel guest cards from Yardi RAW.PROSPECT.  Renames
+      columns, casts the TEXT DTSHOWDATE to DATE (5 mixed formats), decodes
+      the ISTATUS magic number into a funnel stage, nullifies the zero-value
+      HUNIT FK (prospect not yet matched to a unit), normalizes lead-source
+      and desired-bedroom casing, and drops denormalized SPROPNAME.
+      One row per prospect.
+    columns:
+      - name: prospect_id
+        description: "Surrogate PK (source: PROSPECT.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to stg_yardi__properties"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: unit_id
+        description: >
+          FK to stg_yardi__units.  NULL when the prospect has not yet been
+          matched to a specific unit (was HUNIT = 0 in the source, 54 rows).
+
+      - name: prospect_status
+        description: "Human-readable funnel stage decoded from ISTATUS"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['new','contacted','toured','applied','approved','denied','waitlist','leased']
+
+      - name: prospect_status_code
+        description: "Raw ISTATUS integer (0-7); join key to seed_prospect_status"
+        tests:
+          - not_null
+
+      - name: contact_date
+        description: "Date of first contact (guest-card creation)"
+        tests:
+          - not_null
+
+      - name: show_date
+        description: >
+          Parsed from TEXT DTSHOWDATE (5 formats).  NULL when no tour
+          occurred or the value was unparseable
+          (see _stg_show_date_parse_failed).
+
+      - name: lead_source
+        description: "Normalized marketing channel (upper-cased, blanks -> NULL)"
+
+      - name: desired_rent
+        description: "Prospect's target monthly rent"
+
+      - name: _stg_show_date_parse_failed
+        description: >
+          Data-quality flag: true when DTSHOWDATE was non-empty but could
+          not be parsed by any of the 5 known date formats.
