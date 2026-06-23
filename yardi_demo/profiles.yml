@@ -27,7 +27,7 @@ yardi_demo:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
       user: "{{ env_var('SNOWFLAKE_USER') }}"
-      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY') }}"
+      private_key_path: /tmp/snowflake_key.pem
       role: "{{ env_var('SNOWFLAKE_ROLE', 'SYSADMIN') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
