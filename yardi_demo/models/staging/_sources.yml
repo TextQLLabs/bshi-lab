@@ -75,3 +75,9 @@ sources:
         columns:
           - name: HMY
             tests: [unique, not_null]
+
+      - name: PROSPECT
+        description: Prospect dimension -- prospective tenants in the leasing funnel.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
