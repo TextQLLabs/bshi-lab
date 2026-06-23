@@ -2,19 +2,76 @@ version: 2
 
 sources:
   - name: yardi
-    description: Raw Yardi Voyager data loaded into Snowflake.
+    description: >
+      Yardi Voyager property management system -- raw extract loaded into
+      Snowflake via the RAW schema.  Tables use Yardi's HMY surrogate-key
+      convention and Hungarian-notation column prefixes.
     database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
     schema: RAW
-    tables: []
+    loaded_at_field: DTCREATED
+    freshness:
+      warn_after: { count: 24, period: hour }
+      error_after: { count: 72, period: hour }
 
-  - name: yardi_financials
-    description: Yardi financial data.
-    database: YARDI
-    schema: FINANCIALS
-    tables: []
+    tables:
+      - name: TRANS
+        description: >
+          General-ledger transaction journal.  One row per financial event
+          (charge, payment, credit, adjustment).  Contains 35 columns
+          including 7 denormalized text fields that duplicate dimension
+          attributes and 1 date column (DTEFFECTIVE) stored as TEXT in
+          5 inconsistent formats.
+        columns:
+          - name: HMY
+            description: Yardi surrogate primary key
+            tests:
+              - unique
+              - not_null
 
-  - name: yardi_properties
-    description: Yardi property and unit data.
-    database: YARDI
-    schema: PROPERTIES
-    tables: []
+      - name: PROPERTY
+        description: Property dimension -- one row per managed property.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: UNIT
+        description: Unit dimension -- one row per rentable unit.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: TENANT
+        description: Tenant dimension -- one row per tenant record.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: LEASE
+        description: Lease dimension / bridge -- one row per lease agreement.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: BATCH
+        description: Posting batch dimension -- groups transactions for posting.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: GLACCT
+        description: General-ledger chart of accounts.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: CHARGE
+        description: Charge-code dimension -- defines billable charge types.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]
+
+      - name: VENDOR
+        description: Vendor dimension -- maintenance and service providers.
+        columns:
+          - name: HMY
+            tests: [unique, not_null]

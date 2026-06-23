@@ -1,3 +1,84 @@
 version: 2
 
-models: []
+models:
+  - name: stg_yardi__transactions
+    description: >
+      Cleaned transaction journal from Yardi RAW.TRANS.  Renames columns,
+      casts types, maps status codes, drops denormalized text, and flags
+      unparseable effective dates.  One row per financial transaction.
+    columns:
+      - name: transaction_id
+        description: "Surrogate PK (source: TRANS.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to stg_yardi__properties"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: unit_id
+        description: "FK to stg_yardi__units"
+        tests:
+          - not_null
+
+      - name: tenant_id
+        description: "FK to stg_yardi__tenants"
+        tests:
+          - not_null
+
+      - name: lease_id
+        description: "FK to stg_yardi__leases"
+        tests:
+          - not_null
+
+      - name: gl_account_id
+        description: "FK to stg_yardi__gl_accounts"
+        tests:
+          - not_null
+
+      - name: charge_id
+        description: "FK to stg_yardi__charges"
+        tests:
+          - not_null
+
+      - name: transaction_type
+        description: "CHG=Charge, PMT=Payment, CR=Credit, ADJ=Adjustment"
+        tests:
+          - accepted_values:
+              values: ['CHG', 'PMT', 'CR', 'ADJ']
+
+      - name: transaction_status
+        description: "Human-readable status mapped from ISTATUS code"
+        tests:
+          - accepted_values:
+              values: ['posted', 'pending', 'reversed', 'archived']
+
+      - name: transaction_date
+        description: "Date the transaction occurred"
+        tests:
+          - not_null
+
+      - name: effective_date
+        description: >
+          Parsed from TEXT DTEFFECTIVE (5 formats).
+          Check _stg_effective_date_parse_failed for failures.
+
+      - name: amount
+        description: "Signed transaction amount (negative for PMT/CR)"
+        tests:
+          - not_null
+
+      - name: is_voided
+        description: "True if the transaction has been voided"
+        tests:
+          - not_null
+
+      - name: _stg_effective_date_parse_failed
+        description: >
+          Data-quality flag: true when DTEFFECTIVE was non-empty but
+          could not be parsed by any of the 5 known date formats.
