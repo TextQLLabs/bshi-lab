@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: sem_prospect_funnel
+    description: >
+      Control model for the native Snowflake SEMANTIC VIEW
+      YARDI.MARTS.SEM_PROSPECT_FUNNEL.  This model itself is a tiny one-row
+      anchor table; its post_hook runs create_prospect_semantic_view(), which
+      issues CREATE OR REPLACE SEMANTIC VIEW over fct_prospects.  The ref()
+      on fct_prospects guarantees dbt builds the fact first.
+
+      The semantic view exposes governed leasing-funnel metrics
+      (total_prospects, tour_rate, application_rate, approval_rate,
+      lead_to_lease_conversion, avg_days_to_apply, avg_days_to_movein,
+      avg_desired_rent) to Snowflake Cortex Analyst and any
+      SEMANTIC_VIEW(...) query.
+    columns:
+      - name: built_over
+        description: "Fully-qualified fact table the semantic view is built on"
+      - name: prospect_rows
+        description: "Row count of fct_prospects at build time (sanity check)"
+        tests:
+          - not_null
