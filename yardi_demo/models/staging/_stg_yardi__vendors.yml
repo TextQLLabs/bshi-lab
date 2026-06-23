@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: stg_yardi__vendors
+    description: >
+      Cleaned vendor master from Yardi RAW.VENDOR.  Renames Hungarian
+      columns, casts DTINSEXPIRES from mixed-format TEXT to DATE, restores
+      leading-zero ZIPs, casts BACTIVE/BPREFERRED to boolean, and masks the
+      vendor tax id (EIN).  Raw SCATEGORY/S1099TYPE retained for downstream
+      decode.  One row per vendor.
+    columns:
+      - name: vendor_id
+        description: "Natural PK (source: VENDOR.HMY)"
+        tests: [unique, not_null]
+      - name: vendor_code
+        description: "Business key, e.g. V-100 (source: SCODE)"
+        tests: [unique, not_null]
+      - name: vendor_name
+        description: "Vendor display name"
+        tests: [not_null]
+      - name: state_code
+        description: "USPS state code; geographic anchor for region conform"
+        tests: [not_null]
+      - name: zip_code
+        description: "5-char ZIP, left-padded to restore lost leading zeros"
+      - name: tax_id_last4
+        description: "PII-masked vendor EIN (last 4 only)"
+      - name: insurance_expiry_date
+        description: "Parsed from mixed-format TEXT DTINSEXPIRES"
+      - name: is_active
+        description: "Boolean from BACTIVE (0/1)"
+        tests: [not_null]
+      - name: is_preferred
+        description: "Boolean from BPREFERRED (0/1)"
+        tests: [not_null]
+      - name: ytd_paid
+        description: "Year-to-date amount paid to vendor"
+        tests: [not_null]
+      - name: _stg_insurance_expiry_parse_failed
+        description: "DQ flag: DTINSEXPIRES non-empty but unparseable"
+      - name: _stg_insurance_incomplete
+        description: "DQ flag: policy number and expiry presence disagree"
