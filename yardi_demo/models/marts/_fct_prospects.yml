@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: fct_prospects
+    description: >
+      Analytics-ready leasing-funnel fact table.  One row per prospect
+      (guest card) with property/unit attributes resolved and funnel
+      analytics derived.  Incremental merge on prospect_id with modified_at
+      as the watermark.
+
+      Funnel stages (funnel_stage_order): 1 new, 2 contacted, 3 toured,
+      4 applied, 5 approved/waitlist, 6 denied, 7 leased.  Use is_converted
+      for conversion-rate reporting and contact_month for cohorting.
+
+      Key measures: days_to_tour, days_to_apply, days_to_movein,
+      lead_age_days, desired_rent.
+    columns:
+      - name: prospect_sk
+        description: "dbt_utils surrogate key"
+        tests:
+          - unique
+          - not_null
+
+      - name: prospect_id
+        description: "Natural PK from Yardi (PROSPECT.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: prospect_status
+        description: "Funnel stage"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['new','contacted','toured','applied','approved','denied','waitlist','leased']
+
+      - name: property_id
+        description: "FK to dim_properties"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: contact_date
+        description: "Date of first contact"
+        tests:
+          - not_null
+
+      - name: is_converted
+        description: "True only for leased prospects; filter for conversion analysis"
+        tests:
+          - not_null
+
+      - name: reached_lease
+        description: "True when the prospect moved in"
+        tests:
+          - not_null
+
+      - name: _dbt_loaded_at
+        description: "Timestamp when this row was loaded/updated by dbt"
