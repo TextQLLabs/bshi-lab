@@ -19,9 +19,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: yardi_demo/requirements.txt
 
       - name: Install dbt
-        run: pip install dbt-snowflake
+        run: pip install -r requirements.txt
 
       - name: Install packages
         run: dbt deps
