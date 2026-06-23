@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: int_yardi__properties
+    description: >
+      Property record with conformed region and derived business metrics.
+      Resolves the three disagreeing region signals (SREGION,
+      LEGACY_REGION_CD, SSTATE) by deriving an authoritative region from
+      state_code, retaining raw signals for audit, and flagging conflicts.
+      Adds ownership_status, hold_period_years, value_appreciation(_pct),
+      and market_value_per_unit.  Materialized ephemeral.
+    columns:
+      - name: property_id
+        description: "Natural PK carried from staging"
+        tests: [unique, not_null]
+      - name: region
+        description: "Conformed region derived from state_code (authoritative)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast','Midwest','Southeast','Southwest','West Coast','West','Pacific NW','Unmapped']
+      - name: region_signals_conflict
+        description: "True when conformed region disagrees with source SREGION"
+        tests: [not_null]
+      - name: ownership_status
+        description: "Active / Disposed / Inactive lifecycle label"
+        tests:
+          - accepted_values:
+              values: ['Active','Disposed','Inactive']
+      - name: hold_period_years
+        description: "Years from acquired_date to disposed_date (or today)"
+      - name: value_appreciation
+        description: "market_value - purchase_price"
+      - name: market_value_per_unit
+        description: "market_value / total_units (NULL when no units)"
