@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: fct_vendors
+    description: >
+      Analytics-ready vendor fact/dimension, one row per vendor, with
+      conformed region, decoded category, insurance-compliance status, and
+      1099 reportability.  Joinable from fct_transactions.vendor_id.  All
+      vendors retained; filter is_active / vendor_status for active-vendor
+      reporting.  Full-refresh table.
+    columns:
+      - name: vendor_sk
+        description: "dbt_utils surrogate key"
+        tests: [unique, not_null]
+      - name: vendor_id
+        description: "Natural PK from Yardi (VENDOR.HMY)"
+        tests: [unique, not_null]
+      - name: vendor_code
+        description: "Business key (V-###)"
+        tests: [unique, not_null]
+      - name: vendor_name
+        description: "Denormalized name for direct BI consumption"
+        tests: [not_null]
+      - name: category
+        description: "Maintenance / Utility / Legal / Insurance / Other"
+        tests:
+          - accepted_values:
+              values: ['Maintenance','Utility','Legal','Insurance','Other']
+      - name: region
+        description: "Conformed region (derived from state)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast','Midwest','Southeast','Southwest','West Coast','West','Pacific NW','Unmapped']
+      - name: insurance_status
+        description: "Active / Expired / Missing"
+        tests: [not_null]
+      - name: ytd_paid
+        description: "Year-to-date amount paid to vendor"
+        tests: [not_null]
+      - name: is_active
+        description: "True if vendor is active"
+        tests: [not_null]
+      - name: _dbt_loaded_at
+        description: "Load/refresh timestamp"
