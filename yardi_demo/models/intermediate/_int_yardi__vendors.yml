@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: int_yardi__vendors
+    description: >
+      Vendor record with conformed region, decoded category, and derived
+      insurance / 1099 / lifecycle business logic.  Region is conformed
+      from state_code via the shared state->region map.  Materialized
+      ephemeral.
+    columns:
+      - name: vendor_id
+        description: "Natural PK carried from staging"
+        tests: [unique, not_null]
+      - name: category
+        description: "Decoded from SCATEGORY"
+        tests:
+          - accepted_values:
+              values: ['Maintenance','Utility','Legal','Insurance','Other']
+      - name: region
+        description: "Conformed region derived from state_code"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast','Midwest','Southeast','Southwest','West Coast','West','Pacific NW','Unmapped']
+      - name: insurance_status
+        description: "Active / Expired / Missing (compliance view)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Active','Expired','Missing']
+      - name: vendor_status
+        description: "Preferred / Active / Inactive lifecycle label"
+        tests:
+          - accepted_values:
+              values: ['Preferred','Active','Inactive']
+      - name: is_1099_reportable
+        description: "True when a 1099 type is set and amount > 0"
+        tests: [not_null]
