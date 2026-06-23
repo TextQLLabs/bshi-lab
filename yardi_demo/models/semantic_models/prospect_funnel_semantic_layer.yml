@@ -1,0 +1,179 @@
+version: 2
+
+# =============================================================================
+# Prospect Funnel Semantic Model (dbt MetricFlow / Semantic Layer)
+# -----------------------------------------------------------------------------
+# Exposes fct_prospects as a governed semantic surface so leasing-funnel
+# metrics (lead volume, tour/application/approval/conversion rates, velocity)
+# are defined once and consumed consistently across BI tools.
+#
+# Grain: one row per prospect (guest card).
+# =============================================================================
+
+semantic_models:
+  - name: prospects
+    description: >
+      Leasing-funnel guest cards. One row per prospect, from first contact
+      through tour, application, approval, and lease conversion. Built on
+      fct_prospects.
+    model: ref('fct_prospects')
+    defaults:
+      agg_time_dimension: contact_date
+
+    # ---- Entities (join keys) ----
+    entities:
+      - name: prospect
+        type: primary
+        expr: prospect_id
+      - name: property
+        type: foreign
+        expr: property_id
+      - name: unit
+        type: foreign
+        expr: unit_id
+
+    # ---- Dimensions ----
+    dimensions:
+      - name: contact_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: applied_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: move_in_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: prospect_status
+        type: categorical
+        description: "Funnel stage: new/contacted/toured/applied/approved/denied/waitlist/leased"
+      - name: funnel_stage_order
+        type: categorical
+        description: "Ordinal funnel position 1-7"
+      - name: lead_source
+        type: categorical
+        description: "Marketing channel (GOOGLE, APARTMENTS.COM, WALKIN, ...)"
+      - name: desired_bedrooms
+        type: categorical
+      - name: leasing_agent
+        type: categorical
+      - name: property_name
+        type: categorical
+      - name: property_region
+        type: categorical
+      - name: property_fund
+        type: categorical
+
+    # ---- Measures ----
+    measures:
+      - name: prospect_count
+        description: "Total prospects (guest cards)"
+        agg: count
+        expr: prospect_id
+      - name: toured_count
+        description: "Prospects who toured (reached_tour = true)"
+        agg: sum
+        expr: "case when reached_tour then 1 else 0 end"
+      - name: applied_count
+        description: "Prospects who applied (reached_application = true)"
+        agg: sum
+        expr: "case when reached_application then 1 else 0 end"
+      - name: approved_count
+        description: "Prospects approved (reached_approval = true)"
+        agg: sum
+        expr: "case when reached_approval then 1 else 0 end"
+      - name: leased_count
+        description: "Converted prospects (reached_lease = true)"
+        agg: sum
+        expr: "case when reached_lease then 1 else 0 end"
+      - name: total_days_to_apply
+        description: "Sum of days from contact to application (for ratio metrics)"
+        agg: sum
+        expr: days_to_apply
+      - name: total_days_to_movein
+        description: "Sum of days from application to move-in (for ratio metrics)"
+        agg: sum
+        expr: days_to_movein
+      - name: total_desired_rent
+        description: "Sum of desired rent (for average metric)"
+        agg: sum
+        expr: desired_rent
+
+# =============================================================================
+# Metrics
+# =============================================================================
+metrics:
+  # ---- Volume ----
+  - name: total_prospects
+    description: "Count of prospects (leads)"
+    type: simple
+    label: "Total Prospects"
+    type_params:
+      measure: prospect_count
+
+  - name: leased_prospects
+    description: "Count of prospects that converted to a lease"
+    type: simple
+    label: "Leased Prospects"
+    type_params:
+      measure: leased_count
+
+  # ---- Funnel conversion rates (ratio metrics) ----
+  - name: tour_rate
+    description: "Share of prospects that toured"
+    type: ratio
+    label: "Tour Rate"
+    type_params:
+      numerator: toured_count
+      denominator: prospect_count
+
+  - name: application_rate
+    description: "Share of prospects that submitted an application"
+    type: ratio
+    label: "Application Rate"
+    type_params:
+      numerator: applied_count
+      denominator: prospect_count
+
+  - name: approval_rate
+    description: "Share of applicants that were approved"
+    type: ratio
+    label: "Approval Rate (of applicants)"
+    type_params:
+      numerator: approved_count
+      denominator: applied_count
+
+  - name: lead_to_lease_conversion
+    description: "Overall funnel conversion: leads that became leases"
+    type: ratio
+    label: "Lead-to-Lease Conversion"
+    type_params:
+      numerator: leased_count
+      denominator: prospect_count
+
+  # ---- Velocity (average via derived ratio) ----
+  - name: avg_days_to_apply
+    description: "Average calendar days from contact to application"
+    type: ratio
+    label: "Avg Days to Apply"
+    type_params:
+      numerator: total_days_to_apply
+      denominator: applied_count
+
+  - name: avg_days_to_movein
+    description: "Average calendar days from application to move-in"
+    type: ratio
+    label: "Avg Days to Move-in"
+    type_params:
+      numerator: total_days_to_movein
+      denominator: leased_count
+
+  - name: avg_desired_rent
+    description: "Average desired monthly rent across prospects"
+    type: ratio
+    label: "Avg Desired Rent"
+    type_params:
+      numerator: total_desired_rent
+      denominator: prospect_count
