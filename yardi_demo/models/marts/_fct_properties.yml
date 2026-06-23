@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: fct_properties
+    description: >
+      Analytics-ready property fact/dimension, one row per property, with
+      conformed region, derived valuation metrics, and lifecycle status.
+      All properties retained; filter is_active / ownership_status for
+      current-portfolio reporting.  Full-refresh table.
+    columns:
+      - name: property_sk
+        description: "dbt_utils surrogate key"
+        tests: [unique, not_null]
+      - name: property_id
+        description: "Natural PK from Yardi (PROPERTY.HMY)"
+        tests: [unique, not_null]
+      - name: property_code
+        description: "Business key (PROP-###)"
+        tests: [unique, not_null]
+      - name: property_name
+        description: "Denormalized name for direct BI consumption"
+        tests: [not_null]
+      - name: region
+        description: "Conformed region (derived from state)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast','Midwest','Southeast','Southwest','West Coast','West','Pacific NW','Unmapped']
+      - name: property_type
+        description: "Residential / Commercial / Mixed Use"
+        tests:
+          - accepted_values:
+              values: ['Residential', 'Commercial', 'Mixed Use']
+      - name: market_value
+        description: "Current market valuation"
+        tests: [not_null]
+      - name: ownership_status
+        description: "Active / Disposed / Inactive"
+        tests: [not_null]
+      - name: is_active
+        description: "True if property is active"
+        tests: [not_null]
+      - name: _dbt_loaded_at
+        description: "Load/refresh timestamp"
