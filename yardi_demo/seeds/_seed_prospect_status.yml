@@ -1,0 +1,33 @@
+version: 2
+
+seeds:
+  - name: seed_prospect_status
+    description: >
+      Decode lookup for Yardi PROSPECT.ISTATUS magic-number codes (0-7),
+      derived empirically from the status/funnel-date cross-tab in RAW.PROSPECT.
+      Maps each code to a human-readable leasing-funnel stage, an ordinal
+      stage position, and boolean flags for active-lead / converted analysis.
+    columns:
+      - name: prospect_status_code
+        description: "Raw ISTATUS integer (0-7)"
+        tests:
+          - unique
+          - not_null
+      - name: prospect_status
+        description: "Human-readable funnel stage"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['new','contacted','toured','applied','approved','denied','waitlist','leased']
+      - name: funnel_stage_order
+        description: "Ordinal position in the leasing funnel (1=new ... 7=leased)"
+        tests:
+          - not_null
+      - name: is_active_lead
+        description: "True if the prospect is still a workable lead (not denied or leased)"
+        tests:
+          - not_null
+      - name: is_converted
+        description: "True only for leased prospects (funnel conversion)"
+        tests:
+          - not_null
