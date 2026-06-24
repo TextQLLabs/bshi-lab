@@ -3,10 +3,10 @@ version: 2
 sources:
   - name: yardi
     description: >
-      Yardi Voyager property management system -- raw extract loaded into
+      Yardi Voyager property management system — raw extract loaded into
       Snowflake via the RAW schema.  Tables use Yardi's HMY surrogate-key
       convention and Hungarian-notation column prefixes.
-    database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+    database: "{{ env_var('DBT_DATABASE', target.database) }}"
     schema: RAW
     loaded_at_field: DTCREATED
     freshness:
@@ -29,55 +29,67 @@ sources:
               - not_null
 
       - name: PROPERTY
-        description: Property dimension -- one row per managed property.
+        description: Property dimension
         columns:
           - name: HMY
             tests: [unique, not_null]
 
       - name: UNIT
-        description: Unit dimension -- one row per rentable unit.
+        description: >
+          Unit dimension.  One row per rentable unit (240 rows).  ISTATUS is
+          a magic-number status (0=Vacant, 1=Occupied, 2=Down, 3=Model,
+          4=Employee, 9=Unknown) mirrored by the SSTATUSDESC text column;
+          DTLASTINSPECTION is a TEXT date in 5 inconsistent formats; SPROPNAME
+          / SPROPCITY / SPROPSTATE are denormalized property attributes.
         columns:
           - name: HMY
+            description: Yardi surrogate primary key
             tests: [unique, not_null]
+          - name: HPROPERTY
+            description: FK to PROPERTY.HMY
+            tests:
+              - not_null
+              - relationships:
+                  to: source('yardi', 'PROPERTY')
+                  field: HMY
+          - name: ISTATUS
+            description: "Magic-number unit status decoded in stg_yardi__units"
+            tests:
+              - accepted_values:
+                  values: [0, 1, 2, 3, 4, 9]
 
       - name: TENANT
-        description: Tenant dimension -- one row per tenant record.
+        description: Tenant dimension
         columns:
           - name: HMY
             tests: [unique, not_null]
 
       - name: LEASE
-        description: Lease dimension / bridge -- one row per lease agreement.
+        description: Lease dimension / bridge
         columns:
           - name: HMY
             tests: [unique, not_null]
 
       - name: BATCH
-        description: Posting batch dimension -- groups transactions for posting.
+        description: Posting batch dimension
         columns:
           - name: HMY
             tests: [unique, not_null]
 
       - name: GLACCT
-        description: General-ledger chart of accounts.
+        description: General-ledger chart of accounts
         columns:
           - name: HMY
             tests: [unique, not_null]
 
       - name: CHARGE
-        description: Charge-code dimension -- defines billable charge types.
+        description: Charge-code dimension
         columns:
           - name: HMY
             tests: [unique, not_null]
 
       - name: VENDOR
-        description: Vendor dimension -- maintenance and service providers.
-        columns:
-          - name: HMY
-            tests: [unique, not_null]
-
-      - name: PROSPECT
-        description: Prospect dimension -- prospective tenants in the leasing funnel.
+        description: Vendor dimension
         columns:
           - name: HMY
             tests: [unique, not_null]

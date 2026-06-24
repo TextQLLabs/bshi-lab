@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: stg_yardi__units
+    description: >
+      Cleaned unit dimension from Yardi RAW.UNIT.  Renames columns, casts
+      types, decodes the ISTATUS magic-number status, parses the mixed-format
+      DTLASTINSPECTION text date, casts 0/1 flags to boolean, nullifies
+      zero actual rent, and drops denormalized property text columns.
+      One row per rentable unit.
+    columns:
+      - name: unit_id
+        description: "PK (source: UNIT.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to stg_yardi__properties"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: unit_code
+        description: "Human-readable unit identifier (e.g. A-101)"
+        tests:
+          - not_null
+
+      - name: unit_status
+        description: "Human-readable status decoded from ISTATUS"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['vacant', 'occupied', 'down', 'model', 'employee', 'unknown']
+
+      - name: square_feet
+        description: "Rentable area; observed range 400-9,984 sqft"
+        tests:
+          - not_null
+
+      - name: market_rent
+        description: "Asking/market monthly rent for the unit"
+        tests:
+          - not_null
+
+      - name: actual_rent
+        description: >
+          Contract monthly rent; NULL for non-revenue units (was 0 in source
+          for 81 vacant/model/down units).
+
+      - name: is_handicap_accessible
+        description: "True when BHANDICAP = 1"
+        tests:
+          - not_null
+
+      - name: is_furnished
+        description: "True when BFURNISHED = 1"
+        tests:
+          - not_null
+
+      - name: last_inspection_date
+        description: >
+          Parsed from TEXT DTLASTINSPECTION (5 formats).  NULL when never
+          inspected (25 units) or unparseable -- see the parse-failed flag.
+
+      - name: _stg_last_inspection_parse_failed
+        description: >
+          DQ flag: true when DTLASTINSPECTION was non-empty but could not be
+          parsed by any of the 5 known date formats.

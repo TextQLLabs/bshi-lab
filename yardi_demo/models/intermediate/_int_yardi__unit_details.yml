@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: int_yardi__unit_details
+    description: >
+      Unit enriched with parent-property attributes and derived leasing /
+      economic logic (rent gap, rent per sqft, size band, inspection
+      recency).  Ephemeral; one row per unit.
+    columns:
+      - name: unit_id
+        description: "PK inherited from stg_yardi__units"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to the property dimension"
+        tests:
+          - not_null
+
+      - name: unit_size_band
+        description: "Bucketed square_feet"
+        tests:
+          - accepted_values:
+              values: ['studio', 'small', 'medium', 'large']
+
+      - name: is_occupied
+        description: "True when unit_status = 'occupied'"
+        tests:
+          - not_null
+
+      - name: rent_gap
+        description: "market_rent - actual_rent (loss-to-lease when positive)"
+
+      - name: market_rent_per_sqft
+        description: "market_rent / square_feet (NULL when square_feet = 0)"
+
+      - name: inspection_is_overdue
+        description: "True when last inspection > 365 days ago or never"
+        tests:
+          - not_null

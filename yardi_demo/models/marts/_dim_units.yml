@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: dim_units
+    description: >
+      Analytics-ready unit dimension.  One row per unit with property
+      attributes resolved and derived economics (rent gap, rent per sqft)
+      and inspection flags carried through.  Incremental merge on unit_id
+      using modified_at as the watermark.
+
+      All statuses retained; filter is_rentable = true for revenue-relevant
+      units.  Key measures: market_rent, actual_rent, rent_gap,
+      market_rent_per_sqft, square_feet.
+    columns:
+      - name: unit_sk
+        description: "dbt_utils surrogate key"
+        tests:
+          - unique
+          - not_null
+
+      - name: unit_id
+        description: "Natural PK from Yardi (UNIT.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to dim_properties"
+        tests:
+          - not_null
+
+      - name: unit_status
+        description: "vacant / occupied / down / model / employee / unknown"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['vacant', 'occupied', 'down', 'model', 'employee', 'unknown']
+
+      - name: market_rent
+        description: "Asking/market monthly rent"
+        tests:
+          - not_null
+
+      - name: square_feet
+        description: "Rentable area in square feet"
+        tests:
+          - not_null
+
+      - name: is_rentable
+        description: "True for vacant/occupied units (revenue-relevant)"
+        tests:
+          - not_null
+
+      - name: _dbt_loaded_at
+        description: "Timestamp when this row was loaded/updated by dbt"
