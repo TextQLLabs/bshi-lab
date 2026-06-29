@@ -1,0 +1,99 @@
+version: 2
+
+models:
+  - name: stg_yardi__work_orders
+    description: >
+      Cleaned maintenance work-order fact-source from Yardi RAW.WORKORDER.
+      Renames columns, decodes the ISTATUS and IPRIORITY magic-numbers,
+      parses the mixed-format DTSCHEDULED text date, nullifies zero/absent
+      vendor and tenant FKs, casts the permission-to-enter flag to boolean,
+      and drops denormalized property/unit/tenant text columns.  One row per
+      work order (200 rows).
+    columns:
+      - name: work_order_id
+        description: "PK (source: WORKORDER.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to stg_yardi__properties (PROPERTY.HMY)"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: unit_id
+        description: "FK to stg_yardi__units (UNIT.HMY)"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'UNIT')
+              field: HMY
+
+      - name: vendor_id
+        description: >
+          FK to stg_yardi__vendors; NULL for self-performed work (was 0 or
+          NULL in source for 57 of 200 work orders).
+        tests:
+          - relationships:
+              to: source('yardi', 'VENDOR')
+              field: HMY
+
+      - name: work_order_code
+        description: "Human-readable work-order identifier"
+        tests:
+          - not_null
+
+      - name: category
+        description: "Trade category (HVAC, PLUMBING, ELECTRICAL, etc.)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['HVAC', 'PLUMBING', 'ELECTRICAL', 'APPLIANCE', 'PAINTING', 'GENERAL', 'PEST', 'FLOORING']
+
+      - name: priority_label
+        description: "Human-readable priority decoded from numeric IPRIORITY"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['low', 'medium', 'high', 'emergency']
+
+      - name: work_order_status
+        description: "Human-readable status decoded from numeric ISTATUS"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['open', 'in_progress', 'complete', 'cancelled', 'on_hold']
+
+      - name: total_cost
+        description: >
+          Total work-order cost.  Reconciles exactly to labor_cost +
+          material_cost across all source rows (0 mismatches observed).
+
+      - name: requested_date
+        description: "Native DATE the work order was requested"
+        tests:
+          - not_null
+
+      - name: scheduled_date
+        description: >
+          Parsed from TEXT DTSCHEDULED (mixed formats).  NULL when not yet
+          scheduled (34 work orders) or unparseable -- see the parse-failed
+          flag.
+
+      - name: completed_date
+        description: >
+          Native DATE the work order was completed; NULL for open /
+          in-progress / cancelled work orders (112 of 200).
+
+      - name: has_permission_to_enter
+        description: "True when BPERMISSIONTOENTER = 1"
+        tests:
+          - not_null
+
+      - name: _stg_scheduled_date_parse_failed
+        description: >
+          DQ flag: true when DTSCHEDULED was non-empty but could not be
+          parsed by any of the known date formats.
