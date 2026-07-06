@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: stg_yardi__tenants
+    description: >
+      Cleaned tenant master from Yardi RAW.TENANT.  Renames Hungarian
+      columns, decodes magic-number ISTATUS (0=current, 1=former), casts
+      DTBIRTH from mixed-format TEXT to DATE, masks SSN to last 4, casts
+      BACTIVE to boolean, and nullifies zero-value unit/lease FKs.  Raw
+      SLEASETYPE retained for downstream decode.  One row per tenant.
+    columns:
+      - name: tenant_id
+        description: "Natural PK (source: TENANT.HMY)"
+        tests: [unique, not_null]
+      - name: tenant_code
+        description: "Business key, e.g. T-1001 (source: SCODE)"
+        tests: [unique, not_null]
+      - name: property_id
+        description: "FK to stg_yardi__properties / PROPERTY.HMY"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+      - name: full_name
+        description: "Tenant display name"
+        tests: [not_null]
+      - name: tenant_status
+        description: "current / former / unknown_* (decoded from ISTATUS)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['current', 'former']
+      - name: is_active
+        description: "Boolean from BACTIVE (0/1)"
+        tests: [not_null]
+      - name: ssn_last4
+        description: "PII-masked SSN (last 4 only)"
+      - name: birth_date
+        description: "Parsed from mixed-format TEXT DTBIRTH"
+      - name: lease_type
+        description: "FIXED or MTM (month-to-month)"
+        tests:
+          - accepted_values:
+              values: ['FIXED', 'MTM']
+      - name: account_balance
+        description: "Current tenant AR balance; negative = credit"
+        tests: [not_null]
+      - name: credit_score
+        description: "Tenant credit score at screening"
+      - name: _stg_birth_date_parse_failed
+        description: "DQ flag: DTBIRTH non-empty but unparseable by macro"
