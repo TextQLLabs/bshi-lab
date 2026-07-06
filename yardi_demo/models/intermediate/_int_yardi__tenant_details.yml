@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: int_yardi__tenant_details
+    description: >
+      Tenant enriched with property, unit, and lease attributes plus derived
+      tenancy and financial business logic (tenure, delinquency, credit band,
+      age).  Applies a birth-date century correction for 2-digit-year source
+      values (see model header).  Ephemeral; feeds dim_tenants.  One row per
+      tenant.
+    columns:
+      - name: tenant_id
+        description: "Natural PK from Yardi (TENANT.HMY)"
+        tests: [unique, not_null]
+      - name: property_id
+        description: "FK to dim_properties"
+        tests: [not_null]
+      - name: age_years
+        description: >
+          Tenant age from century-corrected birth_date; NULL when the derived
+          age falls outside a plausible 18-100 range.
+      - name: balance_status
+        description: "delinquent / credit / clear"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['delinquent', 'credit', 'clear']
+      - name: credit_band
+        description: "poor / fair / good / excellent / unknown"
+        tests:
+          - accepted_values:
+              values: ['poor', 'fair', 'good', 'excellent', 'unknown']
+      - name: _birth_century_imputed
+        description: "DQ flag: birth year was shifted from a 2-digit parse (<100)"
