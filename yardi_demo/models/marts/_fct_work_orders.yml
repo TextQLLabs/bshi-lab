@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: fct_work_orders
+    description: >
+      Analytics-ready maintenance work-order fact at the individual
+      work-order grain.  One row per work order (200 rows).  Carries
+      decoded status/priority, priority-based SLA targets and breach flags,
+      elapsed-time metrics, labor/material/total costs, and denormalized
+      property, unit, tenant, and vendor attributes.  Incremental merge on
+      work_order_id with modified_at as the watermark.
+    columns:
+      - name: work_order_sk
+        description: "Surrogate key (dbt_utils hash of work_order_id)"
+        tests:
+          - unique
+          - not_null
+
+      - name: work_order_id
+        description: "Natural key (source: WORKORDER.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to dim_property / stg_yardi__properties"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: category
+        description: "Trade category"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['HVAC', 'PLUMBING', 'ELECTRICAL', 'APPLIANCE', 'PAINTING', 'GENERAL', 'PEST', 'FLOORING']
+
+      - name: work_order_status
+        description: "Decoded lifecycle status"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['open', 'in_progress', 'complete', 'cancelled', 'on_hold']
+
+      - name: priority_label
+        description: "Decoded priority"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['low', 'medium', 'high', 'emergency']
+
+      - name: sla_target_days
+        description: >
+          Priority-based response SLA in days (emergency=1, high=3,
+          medium=7, low=14).
+        tests:
+          - not_null
+
+      - name: is_sla_breached
+        description: >
+          True when a completed work order exceeded its SLA target.  NULL
+          for work orders that are not yet complete.
+
+      - name: total_cost
+        description: >
+          Total cost; reconciles to labor_cost + material_cost (0 mismatches
+          observed in source).
+        tests:
+          - not_null
+
+      - name: requested_date
+        description: "Native DATE the work order was requested"
+        tests:
+          - not_null
+
+      - name: is_completed
+        description: "Convenience flag: work_order_status = 'complete'"
+        tests:
+          - not_null
