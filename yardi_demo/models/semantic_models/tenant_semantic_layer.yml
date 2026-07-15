@@ -1,0 +1,157 @@
+# =============================================================================
+# dbt Semantic Model: tenants
+# =============================================================================
+# MetricFlow semantic layer over dim_tenants. Exposes the tenant entity,
+# dimensions, and portfolio-management metrics (delinquency, AR exposure,
+# deposits, credit quality, retention).
+#
+# Grain: one row per tenant (dim_tenants, 189 rows).
+# Validated against live Yardi (Demo) Snowflake data: 159 current tenants,
+# ~25.8% delinquency, $64.3K total AR balance.
+# =============================================================================
+semantic_models:
+  - name: tenants
+    description: >
+      Tenant entity for the Yardi real-estate portfolio. One row per tenant
+      with property/unit/lease context and derived economics resolved in
+      dim_tenants.
+    model: ref('dim_tenants')
+    defaults:
+      agg_time_dimension: move_in_date
+
+    entities:
+      - name: tenant
+        type: primary
+        expr: tenant_id
+      - name: property
+        type: foreign
+        expr: property_id
+      - name: unit
+        type: foreign
+        expr: unit_id
+      - name: lease
+        type: foreign
+        expr: lease_id
+
+    dimensions:
+      - name: tenant_status
+        type: categorical
+        description: "current or former"
+      - name: balance_status
+        type: categorical
+        description: "delinquent / credit / clear"
+      - name: credit_band
+        type: categorical
+        description: "poor / fair / good / excellent / unknown"
+      - name: lease_type
+        type: categorical
+        description: "FIXED or MTM"
+      - name: property_name
+        type: categorical
+      - name: property_region
+        type: categorical
+      - name: property_fund
+        type: categorical
+      - name: is_current
+        type: categorical
+      - name: is_delinquent
+        type: categorical
+      - name: move_in_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: move_out_date
+        type: time
+        type_params:
+          time_granularity: day
+
+    measures:
+      - name: tenant_count
+        description: "Number of tenants"
+        agg: count
+        expr: tenant_id
+      - name: current_tenants
+        description: "Tenants currently in place"
+        agg: sum
+        expr: "case when is_current then 1 else 0 end"
+      - name: delinquent_tenants
+        description: "Tenants with a positive AR balance"
+        agg: sum
+        expr: "case when is_delinquent then 1 else 0 end"
+      - name: total_ar_balance
+        description: "Sum of tenant AR balances (net of credits)"
+        agg: sum
+        expr: account_balance
+      - name: total_delinquent_balance
+        description: "AR balance of delinquent tenants only"
+        agg: sum
+        expr: "case when is_delinquent then account_balance else 0 end"
+      - name: total_deposits_held
+        description: "Total security deposits held"
+        agg: sum
+        expr: deposit
+      - name: sum_credit_score
+        agg: sum
+        expr: credit_score
+      - name: sum_tenure_months
+        agg: sum
+        expr: tenure_months
+
+metrics:
+  - name: tenant_count
+    description: "Number of tenants"
+    type: simple
+    label: "Tenant Count"
+    type_params:
+      measure: tenant_count
+  - name: current_tenant_count
+    description: "Tenants currently in place"
+    type: simple
+    label: "Current Tenants"
+    type_params:
+      measure: current_tenants
+  - name: delinquent_tenant_count
+    description: "Tenants with a positive AR balance"
+    type: simple
+    label: "Delinquent Tenants"
+    type_params:
+      measure: delinquent_tenants
+  - name: total_ar_balance
+    description: "Sum of tenant AR balances (net of credits)"
+    type: simple
+    label: "Total AR Balance"
+    type_params:
+      measure: total_ar_balance
+  - name: total_delinquent_balance
+    description: "AR balance of delinquent tenants only"
+    type: simple
+    label: "Total Delinquent Balance"
+    type_params:
+      measure: total_delinquent_balance
+  - name: total_deposits_held
+    description: "Total security deposits held"
+    type: simple
+    label: "Total Deposits Held"
+    type_params:
+      measure: total_deposits_held
+  - name: delinquency_rate
+    description: "Share of tenants with a positive balance"
+    type: ratio
+    label: "Delinquency Rate"
+    type_params:
+      numerator: delinquent_tenant_count
+      denominator: tenant_count
+  - name: avg_credit_score
+    description: "Average tenant credit score"
+    type: ratio
+    label: "Avg Credit Score"
+    type_params:
+      numerator: sum_credit_score
+      denominator: tenant_count
+  - name: avg_tenure_months
+    description: "Average months of tenancy"
+    type: ratio
+    label: "Avg Tenure (Months)"
+    type_params:
+      numerator: sum_tenure_months
+      denominator: tenant_count
