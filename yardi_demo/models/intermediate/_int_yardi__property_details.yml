@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: int_yardi__property_details
+    description: >
+      Enriched property dimension.  Derives a CONFORMED region from the
+      physical state (source SREGION is unreliable), adds valuation and
+      hold-period business logic, and reconciles reported vs actual unit
+      counts.  Ephemeral; consumed by dim_properties.  One row per property.
+    columns:
+      - name: property_id
+        description: "PK (source: PROPERTY.HMY)"
+        tests:
+          - unique
+          - not_null
+      - name: region
+        description: "Conformed region derived from state (authoritative)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast','Southeast','Midwest','Southwest','West Coast','Pacific NW','Unmapped']
+      - name: property_type
+        description: "Residential / Commercial / Mixed Use"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Residential', 'Commercial', 'Mixed Use']
+      - name: value_gain
+        description: "market_value - purchase_price"
+      - name: hold_period_years
+        description: "Years held: acquired_date to disposed_date (or today)."
+      - name: _int_region_mismatch
+        description: >
+          DQ flag: conformed region disagrees with raw region_reported
+          (true for 14 of 20 rows in the current extract).
+      - name: _int_active_disposed_conflict
+        description: >
+          DQ flag: BACTIVE and disposal state disagree (active with a
+          disposal date, or inactive with no disposal date).
+      - name: _int_unit_count_mismatch
+        description: >
+          DQ flag (observability only): reported_total_units differs from
+          the count of RAW.UNIT rows.  Expected in this extract because
+          UNIT is a partial sample; do not use to override ITOTALUNITS.

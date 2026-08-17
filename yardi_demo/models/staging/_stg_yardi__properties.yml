@@ -3,46 +3,84 @@ version: 2
 models:
   - name: stg_yardi__properties
     description: >
-      Cleaned property master from Yardi RAW.PROPERTY.  Renames Hungarian
-      columns, casts DACQUIRED/DDISPOSED from mixed-format TEXT to DATE,
-      restores leading-zero ZIPs, maps ITYPE to property_type, casts
-      BACTIVE/BTAXEXEMPT to boolean, and masks the owner tax id.  Raw
-      region signals (SREGION, LEGACY_REGION_CD) are intentionally left
-      untouched here and conformed in int_yardi__properties.
-      One row per property.
+      Cleaned property dimension from Yardi RAW.PROPERTY.  Renames columns,
+      restores leading-zero ZIP codes lost to numeric storage, decodes the
+      ITYPE magic-number property type, parses the mixed-format DACQUIRED /
+      DDISPOSED text dates, casts 0/1 flags to boolean, masks the owner tax
+      id, and nullifies the zero-value owner FK.  One row per property.
+
+      NOTE: region_reported (source SREGION) is UNRELIABLE -- it disagrees
+      with the property's state for 14 of 20 rows in the current extract.
+      A conformed `region` is derived from `state` in
+      int_yardi__property_details; prefer that field for reporting.
     columns:
       - name: property_id
-        description: "Natural PK (source: PROPERTY.HMY)"
-        tests: [unique, not_null]
+        description: "PK (source: PROPERTY.HMY)"
+        tests:
+          - unique
+          - not_null
+
       - name: property_code
-        description: "Business key, e.g. PROP-100 (source: SCODE)"
-        tests: [unique, not_null]
+        description: "Human-readable property identifier (e.g. PROP-100)"
+        tests:
+          - unique
+          - not_null
+
       - name: property_name
         description: "Property display name"
-        tests: [not_null]
-      - name: state_code
-        description: "USPS state code; the trusted geographic anchor"
-        tests: [not_null]
-      - name: zip_code
-        description: "5-char ZIP, left-padded to restore lost leading zeros"
-      - name: property_type
-        description: "Mapped from ITYPE (1=Residential, 2=Commercial, 3=Mixed Use)"
         tests:
+          - not_null
+
+      - name: property_type
+        description: "Human-readable type decoded from ITYPE"
+        tests:
+          - not_null
           - accepted_values:
               values: ['Residential', 'Commercial', 'Mixed Use']
-      - name: owner_tax_id_last4
-        description: "PII-masked owner tax id (last 4 only)"
-      - name: acquired_date
-        description: "Parsed from mixed-format TEXT DACQUIRED"
+
+      - name: zip_code
+        description: "5-char ZIP with leading zeros restored (e.g. '02101')"
+        tests:
+          - not_null
+
+      - name: reported_total_units
+        description: >
+          ITOTALUNITS as reported by the property master.  Treated as
+          authoritative for portfolio sizing; note RAW.UNIT is a partial
+          sample in this extract and does not reconcile (see
+          int_yardi__property_details._int_unit_count_mismatch).
+        tests:
+          - not_null
+
+      - name: market_value
+        description: "Current market valuation (MMARKETVALUE)"
+        tests:
+          - not_null
+
       - name: is_active
-        description: "Boolean from BACTIVE (0/1)"
-        tests: [not_null]
+        description: "True when BACTIVE = 1"
+        tests:
+          - not_null
+
       - name: is_tax_exempt
-        description: "Boolean from BTAXEXEMPT (0/1)"
-        tests: [not_null]
+        description: "True when BTAXEXEMPT = 1"
+        tests:
+          - not_null
+
+      - name: region_reported
+        description: >
+          Raw SREGION.  UNRELIABLE (mismatches state for 70% of rows); kept
+          for lineage/audit only.  Use the conformed `region` downstream.
+
+      - name: owner_tax_id_masked
+        description: "Owner tax id with all but the last 4 digits masked."
+
       - name: _stg_acquired_date_parse_failed
-        description: "DQ flag: DACQUIRED non-empty but unparseable"
+        description: >
+          DQ flag: true when DACQUIRED was non-empty but unparseable by any
+          of the 5 known date formats.
+
       - name: _stg_disposed_date_parse_failed
-        description: "DQ flag: DDISPOSED non-empty but unparseable"
-      - name: _stg_county_missing
-        description: "DQ flag: SCOUNTY was NULL in source"
+        description: >
+          DQ flag: true when DDISPOSED was non-empty but unparseable by any
+          of the 5 known date formats.
