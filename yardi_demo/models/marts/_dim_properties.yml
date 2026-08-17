@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: dim_properties
+    description: >
+      Analytics-ready property dimension.  One row per property with a
+      conformed state-derived region, valuation metrics (value gain, market
+      value per unit), lifecycle fields (hold period, disposal), and DQ
+      flags carried through.  Incremental merge on property_id using
+      modified_at as the watermark.
+
+      Use `region` (conformed) not `region_reported`.  All properties
+      retained; filter is_active = true for the live portfolio.
+    columns:
+      - name: property_sk
+        description: "dbt_utils surrogate key"
+        tests:
+          - unique
+          - not_null
+      - name: property_id
+        description: "Natural PK from Yardi (PROPERTY.HMY)"
+        tests:
+          - unique
+          - not_null
+      - name: property_code
+        description: "Human-readable identifier (e.g. PROP-100)"
+        tests:
+          - not_null
+      - name: property_type
+        description: "Residential / Commercial / Mixed Use"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Residential', 'Commercial', 'Mixed Use']
+      - name: region
+        description: "Conformed region derived from state"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Northeast','Southeast','Midwest','Southwest','West Coast','Pacific NW','Unmapped']
+      - name: market_value
+        description: "Current market valuation"
+        tests:
+          - not_null
+      - name: reported_total_units
+        description: "Authoritative unit count (ITOTALUNITS)"
+        tests:
+          - not_null
+      - name: is_active
+        description: "True for active properties (BACTIVE = 1)"
+        tests:
+          - not_null
+      - name: _dbt_loaded_at
+        description: "Timestamp when this row was loaded/updated by dbt"
