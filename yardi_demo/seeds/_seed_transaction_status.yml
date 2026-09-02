@@ -1,0 +1,40 @@
+version: 2
+
+seeds:
+  - name: seed_transaction_status
+    description: >
+      Decode lookup for Yardi TRANS.ISTATUS magic-number codes, derived
+      empirically from a cross-tab of ISTATUS against BVOID and DTPOSTED in
+      RAW.TRANS (2,000 rows).
+
+      Evidence for the mapping:
+        0 (1,601 rows) -- every row has a DTPOSTED and none are voided  -> posted
+        1 (200 rows)   -- no DTPOSTED, not voided                       -> pending
+        2 (101 rows)   -- no DTPOSTED, and BVOID = 1 on all 101 rows,
+                          an exact one-to-one match with the void flag   -> reversed
+        3 (98 rows)    -- no DTPOSTED, not voided                       -> archived
+
+      excluded_from_reporting marks the statuses that should be filtered out
+      of financial reporting; only 'posted' rows represent settled ledger
+      activity.
+    columns:
+      - name: transaction_status_code
+        description: "Raw ISTATUS integer (0-3)"
+        tests:
+          - unique
+          - not_null
+      - name: transaction_status
+        description: "Human-readable transaction status"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['posted', 'pending', 'reversed', 'archived']
+      - name: is_posted
+        description: "True only for status 0; the row has a posted date"
+        tests: [not_null]
+      - name: is_void_status
+        description: "True for status 2; redundant with BVOID but kept for clarity"
+        tests: [not_null]
+      - name: excluded_from_reporting
+        description: "True for any non-posted status"
+        tests: [not_null]
