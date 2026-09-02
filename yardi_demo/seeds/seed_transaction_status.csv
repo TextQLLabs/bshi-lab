@@ -1,0 +1,5 @@
+transaction_status_code,transaction_status,is_posted,is_void_status,excluded_from_reporting
+0,posted,true,false,false
+1,pending,false,false,true
+2,reversed,false,true,true
+3,archived,false,false,true
