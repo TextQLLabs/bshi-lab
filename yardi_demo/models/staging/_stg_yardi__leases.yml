@@ -1,0 +1,129 @@
+version: 2
+
+models:
+  - name: stg_yardi__leases
+    description: >
+      Conformed lease staging model from Yardi RAW.LEASE.  Renames columns,
+      casts types, derives an authoritative unit_code from UNIT.SCODE (the
+      denormalized LEASE.SUNITCODE is overwritten with a numeric id on every
+      terminated lease), evaluates lease_state against the warehouse data
+      horizon rather than the wall clock, models month-to-month leases as a
+      distinct open-ended state, quarantines the unreliable notice date, and
+      makes renewal lineage explicit.  One row per lease.
+    columns:
+      - name: lease_id
+        description: "PK (source: LEASE.HMY)"
+        tests:
+          - unique
+          - not_null
+
+      - name: property_id
+        description: "FK to stg_yardi__properties"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'PROPERTY')
+              field: HMY
+
+      - name: unit_id
+        description: "FK to stg_yardi__units"
+        tests:
+          - not_null
+          - relationships:
+              to: source('yardi', 'UNIT')
+              field: HMY
+
+      - name: unit_code
+        description: >
+          Authoritative human-readable unit code, joined from UNIT.SCODE.
+          Never sourced from LEASE.SUNITCODE, which disagrees on all 30
+          terminated leases.
+        tests:
+          - not_null
+
+      - name: lease_term_type
+        description: "fixed_term or month_to_month, derived from STYPE"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['fixed_term', 'month_to_month']
+
+      - name: lease_state
+        description: >
+          Lease status as of data_as_of.  open_month_to_month leases have no
+          end date by design and must be reported alongside any expiration
+          schedule or exposure is understated.  expired_no_move_out means
+          renewal, holdover and silent vacancy are indistinguishable.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['active_fixed_term', 'open_month_to_month', 'expired_no_move_out', 'terminated']
+
+      - name: data_as_of
+        description: >
+          Warehouse data horizon (max TRANS.DTTRANSACTION).  Lease state is
+          evaluated against this, never against current_date.
+        tests:
+          - not_null
+
+      - name: lease_end_date
+        description: >
+          NULL for month-to-month leases BY DESIGN -- this is not a defect and
+          must not be backfilled.
+
+      - name: monthly_rent
+        description: "Contract monthly rent"
+        tests:
+          - not_null
+
+      - name: annualized_rent
+        description: "monthly_rent * 12; contract rent at risk, not realized revenue"
+        tests:
+          - not_null
+
+      - name: termination_reason
+        description: >
+          Coalesced termination reason; 'not_recorded' where the source is
+          blank (9 of 30 move-outs).  Reason-based totals are a floor.
+        tests:
+          - not_null
+
+      - name: renewal_state
+        description: >
+          Reconciles BRENEWED against HPRIORLEASE lineage.  flagged_no_lineage
+          marks the 27 leases where the renewal flag has no prior-lease link.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['confirmed_renewal', 'flagged_no_lineage', 'lineage_not_flagged', 'new_lease']
+
+      - name: _stg_notice_date_quarantined
+        description: >
+          DQ quarantine: DTNOTICE is unrelated to actual departures (130 leases
+          carry a notice date yet never moved out; 23 of 30 move-outs have
+          notice dated after departure).  Do not build notice-period metrics.
+
+      - name: _stg_unit_code_corrupt_in_source
+        description: "DQ flag: LEASE.SUNITCODE disagreed with UNIT.SCODE"
+        tests:
+          - not_null
+
+      - name: _stg_is_unresolved_expiry
+        description: "DQ flag: fixed-term lease past end date with no move-out"
+        tests:
+          - not_null
+
+      - name: _stg_termination_reason_missing
+        description: "DQ flag: move-out recorded with blank STERMREASON"
+        tests:
+          - not_null
+
+      - name: _stg_notice_date_usable
+        description: "DQ flag: notice date exists and precedes the move-out"
+        tests:
+          - not_null
+
+      - name: _stg_concession_undocumented
+        description: "DQ flag: concession amount present with no description"
+        tests:
+          - not_null
